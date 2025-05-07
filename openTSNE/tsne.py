@@ -1156,7 +1156,10 @@ class TSNE(BaseEstimator):
         callbacks=None,
         callbacks_every_iters=50,
         random_state=None,
-        verbose=False,
+        verbose=True,
+        regularization=False,
+        reg_lambda=0.005,
+        reg_embedding=None,
     ):
         self.n_components = n_components
         self.perplexity = perplexity
@@ -1199,6 +1202,11 @@ class TSNE(BaseEstimator):
         self.random_state = random_state
         self.verbose = verbose
 
+        # regularization parameters
+        self.regularization = regularization
+        self.reg_lambda = reg_lambda
+        self.reg_embedding = reg_embedding
+
     def fit(self, X=None, affinities=None, initialization=None):
         """Fit a t-SNE embedding for a given data set.
 
@@ -1211,7 +1219,7 @@ class TSNE(BaseEstimator):
             compute the affinity matrix and initialization, and run the optimization
             as usual.
         2.  We can also pass in a precomputed ``affinity`` object, which will
-            override the affinity-related paramters specified in the constructor.
+            override the affinity-related parameters specified in the constructor.
             This is useful when you wish to use custom affinity objects.
 
         Please note that some initialization schemes require ``X`` to be specified,
@@ -1434,6 +1442,10 @@ class TSNE(BaseEstimator):
             # Callback params
             "callbacks": self.callbacks,
             "callbacks_every_iters": self.callbacks_every_iters,
+            # Regularization params
+            "regularization": self.regularization,
+            "reg_lambda": self.reg_lambda,
+            "reg_embedding": self.reg_embedding,
         }
 
         return TSNEEmbedding(
@@ -1606,6 +1618,9 @@ class gradient_descent:
         callbacks=None,
         callbacks_every_iters=50,
         verbose=False,
+        regularization=False,
+        reg_lambda=0.005,
+        reg_embedding=None,
     ):
         """Perform batch gradient descent with momentum and gains.
 
@@ -1798,6 +1813,13 @@ class gradient_descent:
                 should_eval_error=should_eval_error,
             )
 
+            # embedding regularizer
+            if regularization and reg_embedding is not None:
+                alpha = reg_embedding * np.linalg.norm(embedding)/np.linalg.norm(reg_embedding)
+                reg_grad = 2 * (embedding - alpha * reg_embedding)
+                gradient = (1 - reg_lambda) * gradient + reg_lambda * reg_grad
+                error = (1 - reg_lambda) * error + reg_lambda * np.mean((embedding - alpha * reg_embedding) ** 2)
+
             # Clip gradients to avoid points shooting off. This can be an issue
             # when applying transform and points are initialized so that the new
             # points overlap with the reference points, leading to large
@@ -1831,7 +1853,9 @@ class gradient_descent:
                 self.gains[grad_direction_same] * 0.8 + min_gain
             )
             gradient = gradient.view(np.ndarray)
-            self.update = momentum * self.update - learning_rate * self.gains * gradient
+            # self.update = momentum * self.update - learning_rate * self.gains * gradient
+            self.update = - learning_rate * gradient
+
 
             # Clip the update sizes
             if max_step_norm is not None:
@@ -1884,5 +1908,7 @@ class gradient_descent:
             n_jobs=n_jobs,
             should_eval_error=True,
         )
+        if regularization and reg_embedding is not None:
+            error = (1 - reg_lambda) * error + reg_lambda * np.mean((embedding - alpha * reg_embedding) ** 2)
 
         return error, embedding
