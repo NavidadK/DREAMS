@@ -67,6 +67,8 @@ def _handle_nice_params(embedding: np.ndarray, optim_params: dict) -> None:
         )
     # `gradient_descent` uses the more informative name `objective_function`
     optim_params["objective_function"] = negative_gradient_method
+    # optim_params["reg_scaling"] = optim_params.get("reg_scaling", "optimal")
+    # optim_params["reg_scaling_dims"] = optim_params.get("reg_scaling_dims", "all")
 
     # Handle number of jobs
     n_jobs = optim_params.get("n_jobs", 1)
@@ -677,7 +679,11 @@ class TSNEEmbedding(np.ndarray):
             # Run gradient descent with the embedding optimizer so gains are
             # properly updated and kept
             error, embedding = embedding.optimizer(
-                embedding=embedding, P=self.affinities.P, **optim_params
+                embedding=embedding, 
+                P=self.affinities.P,
+                # reg_scaling=self.gradient_descent_params.get("reg_scaling"), 
+                # reg_scaling_dims=self.gradient_descent_params.get("reg_scaling_dims"), 
+                **optim_params
             )
 
         except OptimizationInterrupt as ex:
@@ -1160,6 +1166,8 @@ class TSNE(BaseEstimator):
         regularization=False,
         reg_lambda=0.005,
         reg_embedding=None,
+        reg_scaling='optimal',
+        reg_scaling_dims='all',
     ):
         self.n_components = n_components
         self.perplexity = perplexity
@@ -1206,6 +1214,8 @@ class TSNE(BaseEstimator):
         self.regularization = regularization
         self.reg_lambda = reg_lambda
         self.reg_embedding = reg_embedding
+        self.reg_scaling = reg_scaling
+        self.reg_scaling_dims = reg_scaling_dims
 
     def fit(self, X=None, affinities=None, initialization=None):
         """Fit a t-SNE embedding for a given data set.
@@ -1446,6 +1456,8 @@ class TSNE(BaseEstimator):
             "regularization": self.regularization,
             "reg_lambda": self.reg_lambda,
             "reg_embedding": self.reg_embedding,
+            "reg_scaling": self.reg_scaling,
+            "reg_scaling_dims": self.reg_scaling_dims,
         }
 
         return TSNEEmbedding(
@@ -1853,41 +1865,35 @@ class gradient_descent:
             # embedding regularizer
             if regularization and reg_embedding is not None:
                 # Regularization error and gradient
-                #alpha = np.linalg.norm(embedding, axis=0)/np.linalg.norm(reg_embedding, axis=0)
-                alpha = np.sum(embedding * reg_embedding) / np.sum(reg_embedding ** 2)
+                if reg_scaling == 'optimal':
+                    # optimal scaling
+                    if reg_scaling_dims == 'all':
+                        alpha = np.sum(embedding * reg_embedding, axis=0) / np.sum(reg_embedding ** 2, axis=0)
+                    elif reg_scaling_dims == 'one':
+                        alpha = np.sum(embedding * reg_embedding) / np.sum(reg_embedding ** 2)
+                elif reg_scaling == 'norm':
+                    if reg_scaling_dims == 'all':
+                        alpha = np.linalg.norm(embedding, axis=0)/np.linalg.norm(reg_embedding, axis=0)
+                    elif reg_scaling_dims == 'one':
+                        alpha = np.linalg.norm(embedding)/np.linalg.norm(reg_embedding)
+
                 reg_error = np.mean((embedding - alpha * reg_embedding) ** 2)
                 reg_grad = 2 * (embedding - alpha * reg_embedding)
-                
-                # print("tsne_norm", np.linalg.norm(embedding))
-                # print("reg_norm", np.linalg.norm(reg_embedding))
-                # print('------------------------')
-                # print("reg_error", reg_error)
-                # print("tsne_error", error)
-                # print("total_error", (1-reg_lambda) * error + reg_lambda * reg_error)
-                # print('--------------------------------------------------------------')
 
                 # Combining with the t-SNE error and gradient
-                tsne_grad = momentum * self.update - learning_rate * self.gains * gradient
                 tsne_grad = self.gains * gradient
-                combined_grad = (1-reg_lambda) * tsne_grad + reg_lambda * reg_grad
-                self.update = momentum * self.update - learning_rate * combined_grad
 
-                # print('tsne_grad', np.linalg.norm(tsne_grad))
+                # # all momentum
+                # combined_grad = (1-reg_lambda) * tsne_grad + reg_lambda * reg_grad
+                # self.update = momentum * self.update - learning_rate * combined_grad
 
-                # self.update = (1-reg_lambda) * tsne_grad - reg_lambda * momentum * self.update * learning_rate * reg_grad
+                # momentum only for t-SNE
+                self.update = momentum * self.update - learning_rate * (1 - reg_lambda) * tsne_grad
+                reg_update = -learning_rate * reg_lambda * reg_grad
             else:
                 # Only t-SNE objective
                 self.update = momentum * self.update - learning_rate * self.gains * gradient
-                # print('tsne_grad', np.linalg.norm(self.update))
 
-
-
-            # self.update = (1-reg_lambda) * momentum * self.update - learning_rate * self.gains * gradient - learning_rate * 100 * reg_lambda * reg_grad
-            # self.update = momentum * self.update - learning_rate * self.gains * gradient
-            # print("error", np.linalg.norm(error))
-
-            #self.update = - learning_rate * gradient
-            # print('Update', self.update/-learning_rate)
 
             # Clip the update sizes
             if max_step_norm is not None:
@@ -1896,7 +1902,10 @@ class gradient_descent:
                 self.update[mask] /= update_norms[mask]
                 self.update[mask] *= max_step_norm
 
-            embedding += self.update
+            if regularization:
+                embedding += self.update + reg_update
+            else:
+                embedding += self.update
             # print("embedding", np.linalg.norm(embedding))
 
             # Zero-mean the embedding only if we're not adding new data points,
