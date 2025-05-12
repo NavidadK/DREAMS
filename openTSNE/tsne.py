@@ -1621,6 +1621,8 @@ class gradient_descent:
         regularization=False,
         reg_lambda=0.005,
         reg_embedding=None,
+        reg_scaling='optimal',
+        reg_scaling_dims='all',
     ):
         """Perform batch gradient descent with momentum and gains.
 
@@ -1813,13 +1815,6 @@ class gradient_descent:
                 should_eval_error=should_eval_error,
             )
 
-            # embedding regularizer
-            if regularization and reg_embedding is not None:
-                alpha = reg_embedding * np.linalg.norm(embedding)/np.linalg.norm(reg_embedding)
-                reg_grad = 2 * (embedding - alpha * reg_embedding)
-                gradient = (1 - reg_lambda) * gradient + reg_lambda * reg_grad
-                error = (1 - reg_lambda) * error + reg_lambda * np.mean((embedding - alpha * reg_embedding) ** 2)
-
             # Clip gradients to avoid points shooting off. This can be an issue
             # when applying transform and points are initialized so that the new
             # points overlap with the reference points, leading to large
@@ -1853,9 +1848,46 @@ class gradient_descent:
                 self.gains[grad_direction_same] * 0.8 + min_gain
             )
             gradient = gradient.view(np.ndarray)
-            # self.update = momentum * self.update - learning_rate * self.gains * gradient
-            self.update = - learning_rate * gradient
 
+            
+            # embedding regularizer
+            if regularization and reg_embedding is not None:
+                # Regularization error and gradient
+                #alpha = np.linalg.norm(embedding, axis=0)/np.linalg.norm(reg_embedding, axis=0)
+                alpha = np.sum(embedding * reg_embedding) / np.sum(reg_embedding ** 2)
+                reg_error = np.mean((embedding - alpha * reg_embedding) ** 2)
+                reg_grad = 2 * (embedding - alpha * reg_embedding)
+                
+                # print("tsne_norm", np.linalg.norm(embedding))
+                # print("reg_norm", np.linalg.norm(reg_embedding))
+                # print('------------------------')
+                # print("reg_error", reg_error)
+                # print("tsne_error", error)
+                # print("total_error", (1-reg_lambda) * error + reg_lambda * reg_error)
+                # print('--------------------------------------------------------------')
+
+                # Combining with the t-SNE error and gradient
+                tsne_grad = momentum * self.update - learning_rate * self.gains * gradient
+                tsne_grad = self.gains * gradient
+                combined_grad = (1-reg_lambda) * tsne_grad + reg_lambda * reg_grad
+                self.update = momentum * self.update - learning_rate * combined_grad
+
+                # print('tsne_grad', np.linalg.norm(tsne_grad))
+
+                # self.update = (1-reg_lambda) * tsne_grad - reg_lambda * momentum * self.update * learning_rate * reg_grad
+            else:
+                # Only t-SNE objective
+                self.update = momentum * self.update - learning_rate * self.gains * gradient
+                # print('tsne_grad', np.linalg.norm(self.update))
+
+
+
+            # self.update = (1-reg_lambda) * momentum * self.update - learning_rate * self.gains * gradient - learning_rate * 100 * reg_lambda * reg_grad
+            # self.update = momentum * self.update - learning_rate * self.gains * gradient
+            # print("error", np.linalg.norm(error))
+
+            #self.update = - learning_rate * gradient
+            # print('Update', self.update/-learning_rate)
 
             # Clip the update sizes
             if max_step_norm is not None:
@@ -1865,6 +1897,7 @@ class gradient_descent:
                 self.update[mask] *= max_step_norm
 
             embedding += self.update
+            # print("embedding", np.linalg.norm(embedding))
 
             # Zero-mean the embedding only if we're not adding new data points,
             # otherwise this will reset point positions
@@ -1908,7 +1941,26 @@ class gradient_descent:
             n_jobs=n_jobs,
             should_eval_error=True,
         )
+
         if regularization and reg_embedding is not None:
             error = (1 - reg_lambda) * error + reg_lambda * np.mean((embedding - alpha * reg_embedding) ** 2)
 
         return error, embedding
+
+class Decoder:
+    def __init__(self, input_dim, output_dim, decoder_weights=None):
+        # Initialize weights and biases
+        if decoder_weights is not None:
+            self.weights = decoder_weights
+        else:
+            # Randomly initialize weights
+            self.weights = np.random.randn(input_dim, output_dim) * 0.01
+        self.biases = np.zeros(output_dim)
+
+    def forward(self, embedding):
+        # Perform a forward pass: D(y) = y @ weights + biases
+        return embedding @ self.weights + self.biases
+
+    def compute_loss(self, original_data, reconstructed_data):
+        # Compute the reconstruction loss: ||x - D(y)||^2
+        return np.mean(np.sum((original_data - reconstructed_data) ** 2, axis=1))
