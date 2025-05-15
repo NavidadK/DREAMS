@@ -1274,7 +1274,6 @@ class TSNE(BaseEstimator):
                 inplace=True,
                 propagate_exception=True,
             )
-
             # Restore actual affinity probabilities and increase momentum to get
             # final, optimized embedding
             embedding.optimize(
@@ -1868,17 +1867,24 @@ class gradient_descent:
                 if reg_scaling == 'optimal':
                     # optimal scaling
                     if reg_scaling_dims == 'all':
-                        alpha = np.sum(embedding * reg_embedding, axis=0) / np.sum(reg_embedding ** 2, axis=0)
+                        alpha = np.sum(embedding * reg_embedding, axis=0) / (np.sum(reg_embedding ** 2, axis=0) + 1e-8)
                     elif reg_scaling_dims == 'one':
-                        alpha = np.sum(embedding * reg_embedding) / np.sum(reg_embedding ** 2)
+                        alpha = np.sum(embedding * reg_embedding) / (np.sum(reg_embedding ** 2) + 1e-8)
                 elif reg_scaling == 'norm':
                     if reg_scaling_dims == 'all':
-                        alpha = np.linalg.norm(embedding, axis=0)/np.linalg.norm(reg_embedding, axis=0)
+                        alpha = np.linalg.norm(embedding, axis=0) / (np.linalg.norm(reg_embedding, axis=0) + 1e-8)
                     elif reg_scaling_dims == 'one':
-                        alpha = np.linalg.norm(embedding)/np.linalg.norm(reg_embedding)
-
+                        alpha = np.linalg.norm(embedding) / (np.linalg.norm(reg_embedding) + 1e-8)
                 reg_error = np.mean((embedding - alpha * reg_embedding) ** 2)
-                reg_grad = 2 * (embedding - alpha * reg_embedding)
+                reg_grad = 2/len(embedding) * (embedding - alpha * reg_embedding)
+
+                # # grad clipping
+                # reg_grad = np.clip(reg_grad, -1, 1)
+
+                # grad_norm = np.linalg.norm(reg_grad)
+                # max_grad_norm = 10.0
+                # if grad_norm > max_grad_norm:
+                #     reg_grad = (reg_grad / grad_norm) * max_grad_norm
 
                 # Combining with the t-SNE error and gradient
                 tsne_grad = self.gains * gradient
@@ -1888,7 +1894,8 @@ class gradient_descent:
                 # self.update = momentum * self.update - learning_rate * combined_grad
 
                 # momentum only for t-SNE
-                self.update = momentum * self.update - learning_rate * (1 - reg_lambda) * tsne_grad
+                # self.update = momentum * self.update - learning_rate * (1 - reg_lambda) * tsne_grad
+                self.update = momentum * self.update - learning_rate * tsne_grad
                 reg_update = -learning_rate * reg_lambda * reg_grad
             else:
                 # Only t-SNE objective
@@ -1902,11 +1909,11 @@ class gradient_descent:
                 self.update[mask] /= update_norms[mask]
                 self.update[mask] *= max_step_norm
 
-            if regularization:
-                embedding += self.update + reg_update
+            if regularization: 
+                embedding += (1-reg_lambda) * self.update + reg_lambda * reg_update
             else:
                 embedding += self.update
-            # print("embedding", np.linalg.norm(embedding))
+            print(f"iteration {iteration}: embedding norm", np.linalg.norm(embedding))
 
             # Zero-mean the embedding only if we're not adding new data points,
             # otherwise this will reset point positions
