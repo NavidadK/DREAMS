@@ -681,6 +681,7 @@ class TSNEEmbedding(np.ndarray):
             error, embedding = embedding.optimizer(
                 embedding=embedding, 
                 P=self.affinities.P,
+                # X=gradient_descent_params.get("X", None),
                 # reg_scaling=self.gradient_descent_params.get("reg_scaling"), 
                 # reg_scaling_dims=self.gradient_descent_params.get("reg_scaling_dims"), 
                 **optim_params
@@ -1164,10 +1165,12 @@ class TSNE(BaseEstimator):
         random_state=None,
         verbose=True,
         regularization=False,
-        reg_lambda=0.005,
+        reg_lambda=0.1,
         reg_embedding=None,
-        reg_scaling='optimal',
-        reg_scaling_dims='all',
+        reg_scaling='norm',
+        reg_scaling_dims='one',
+        reg_decoder=False,
+        reg_decoder_weights=None,
     ):
         self.n_components = n_components
         self.perplexity = perplexity
@@ -1216,6 +1219,10 @@ class TSNE(BaseEstimator):
         self.reg_embedding = reg_embedding
         self.reg_scaling = reg_scaling
         self.reg_scaling_dims = reg_scaling_dims
+
+        self.reg_decoder = reg_decoder
+        self.reg_decoder_weights = reg_decoder_weights
+
 
     def fit(self, X=None, affinities=None, initialization=None):
         """Fit a t-SNE embedding for a given data set.
@@ -1457,6 +1464,9 @@ class TSNE(BaseEstimator):
             "reg_embedding": self.reg_embedding,
             "reg_scaling": self.reg_scaling,
             "reg_scaling_dims": self.reg_scaling_dims,
+            "X": X,
+            "reg_decoder": self.reg_decoder,
+            "reg_decoder_weights": self.reg_decoder_weights,
         }
 
         return TSNEEmbedding(
@@ -1630,10 +1640,13 @@ class gradient_descent:
         callbacks_every_iters=50,
         verbose=False,
         regularization=False,
-        reg_lambda=0.005,
+        reg_lambda=0.1,
         reg_embedding=None,
         reg_scaling='optimal',
         reg_scaling_dims='all',
+        reg_decoder=False,
+        reg_decoder_weights=None,
+        X=None,
     ):
         """Perform batch gradient descent with momentum and gains.
 
@@ -1809,6 +1822,10 @@ class gradient_descent:
         if verbose:
             start_time = time()
 
+        # Init decoder
+        if reg_decoder:
+            self.decoder = Decoder(input_dim=embedding.shape[1], output_dim=X.shape[1], decoder_weights=reg_decoder_weights)
+
         for iteration in range(n_iter):
             should_call_callback = use_callbacks and (iteration + 1) % callbacks_every_iters == 0
             # Evaluate error on 50 iterations for logging, or when callbacks
@@ -1897,6 +1914,15 @@ class gradient_descent:
                 # self.update = momentum * self.update - learning_rate * (1 - reg_lambda) * tsne_grad
                 self.update = momentum * self.update - learning_rate * tsne_grad
                 reg_update = -learning_rate * reg_lambda * reg_grad
+                            
+            elif reg_decoder:
+                reg_error = self.decoder.compute_loss(X, embedding)
+                dec_grad_y, dec_grad_w, dec_grad_b = self.decoder.compute_gradients(X, embedding)
+
+                # t-SNE
+                tsne_grad = self.gains * gradient
+                self.update = momentum * self.update - learning_rate * tsne_grad
+            
             else:
                 # Only t-SNE objective
                 self.update = momentum * self.update - learning_rate * self.gains * gradient
@@ -1911,6 +1937,10 @@ class gradient_descent:
 
             if regularization: 
                 embedding += (1-reg_lambda) * self.update + reg_lambda * reg_update
+            elif reg_decoder:
+                embedding += (1-reg_lambda) * self.update + reg_lambda / len(embedding) * dec_grad_y
+                self.decoder.weights -= learning_rate * dec_grad_w
+                self.decoder.biases -= learning_rate * dec_grad_b
             else:
                 embedding += self.update
             print(f"iteration {iteration}: embedding norm", np.linalg.norm(embedding))
@@ -1970,13 +2000,24 @@ class Decoder:
             self.weights = decoder_weights
         else:
             # Randomly initialize weights
-            self.weights = np.random.randn(input_dim, output_dim) * 0.01
+            self.weights = np.random.randn(output_dim, input_dim) * 0.01
         self.biases = np.zeros(output_dim)
 
-    def forward(self, embedding):
-        # Perform a forward pass: D(y) = y @ weights + biases
-        return embedding @ self.weights + self.biases
+    def forward(self, Y):
+        return self.weights @ Y.T + self.biases[:, np.newaxis]
 
-    def compute_loss(self, original_data, reconstructed_data):
-        # Compute the reconstruction loss: ||x - D(y)||^2
-        return np.mean(np.sum((original_data - reconstructed_data) ** 2, axis=1))
+    def compute_loss(self, X, Y):
+        # Compute reconstruction loss: 
+        X_hat = self.forward(Y)
+        return np.mean(np.sum((X.T - X_hat) ** 2, axis=1))
+        #return np.mean(np.sum((X - Y) ** 2, axis=1))
+    
+    def compute_gradients(self, X, Y):
+        X_hat = self.forward(Y)
+        E = X.T - X_hat
+
+        grad_y = 1/len(Y) * self.weights.T @ E
+        grad_weights = 1/len(Y) * E @ Y
+        grad_biases = 1/len(Y) * np.sum(E, axis=1)
+
+        return grad_y.T, grad_weights, grad_biases
