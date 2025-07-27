@@ -1973,7 +1973,7 @@ class gradient_descent:
                 # self.decoder.biases -= learning_rate * dec_grad_b
             else:
                 embedding += self.update
-            print(f"iteration {iteration}: embd norm", np.linalg.norm(embedding))
+            # print(f"iteration {iteration}: embd norm", np.linalg.norm(embedding))
 
             # Zero-mean the embedding only if we're not adding new data points,
             # otherwise this will reset point positions

@@ -8,3 +8,9 @@ dist/
 .ipynb_checkpoints/
 .DS_STORE
 *.cpp
+*.o
+archive/
+figures/
+results/
+run_exag.py
+run_dreams_opts.py
