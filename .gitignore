@@ -1,0 +1,10 @@
+starmap/
+squad_mds/
+data/
+results/
+gpfs01/
+build/
+.vscode/
+cne/__pycache__/
+openTSNE/__pycache__/
+openTSNE.egg-info/
