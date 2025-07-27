@@ -1,4 +1,4 @@
-from embedding_quality import embedding_quality
+from functions.embedding_quality import embedding_quality
 import numpy as np
 import pickle
 import torchvision
@@ -9,41 +9,36 @@ print("Imports completed successfully.")
 
 # data
 # tasic
-tasic_data = np.load('data/tasic/tasic-pca50.npy')
-tasic_labels = np.load('data/tasic/tasic-ttypes.npy')
-
+tasic_data = np.load('../data/tasic/tasic-pca50.npy')
+tasic_labels = np.load('../data/tasic/tasic-ttypes.npy')
 tasic_pca2 = tasic_data[:, :2]
 tasic_init = tasic_pca2 / tasic_pca2[:,0].std()
 
 # kanton
-folder_path = "/gpfs01/berens/data/sharing_files/sdamrich/for_noel/human-409b2"
-data_file = f"{folder_path}/human-409b2.data.npy"
-labels_file = f"{folder_path}/human-409b2.labels.npy"
-pkl_file = f"{folder_path}/human-409b2.pkl"
+data_file = "../data/Kanton/human-409b2.data.npy"
+labels_file = "../data/Kanton/human-409b2.labels.npy"
+pkl_file = "../data/Kanton/human-409b2.pkl"
 
 kanton_data = np.load(data_file)
 kanton_labels = np.load(labels_file)
-
 kanton_pca2 = kanton_data[:, :2]
 kanton_init = kanton_pca2 / kanton_pca2[:,0].std()
 
 # genome
-genome_data_all = np.loadtxt('data/Genomes/gt_sum_thinned.npy')
+genome_data_all = np.loadtxt('../data/Genomes/gt_sum_thinned.npy')
 genome_data = PCA(n_components=50).fit_transform(genome_data_all)
-
-genome_labels = np.loadtxt('data/Genomes/population_labels.txt', dtype=str)
-
+genome_labels = np.loadtxt('../data/Genomes/population_labels.txt', dtype=str)
 genome_pca2 = genome_data[:, :2]
 genome_init = genome_pca2 / genome_pca2[:,0].std()
 
 # mnist
-mnist_train = torchvision.datasets.MNIST(root='./data',
+mnist_train = torchvision.datasets.MNIST(root='../data',
                                          train=True,
                                          download=False, 
                                          transform=None)
 x_train, y_train = mnist_train.data.float().numpy(), mnist_train.targets
 
-mnist_test = torchvision.datasets.MNIST(root='./data',
+mnist_test = torchvision.datasets.MNIST(root='../data',
                                         train=False,
                                         download=False, 
                                         transform=None)
@@ -58,31 +53,24 @@ y = np.concatenate([y_train, y_test], axis=0)
 pca = PCA(n_components=50)
 mnist_data = pca.fit_transform(x_train)
 mnist_labels = y_train
-
 mnist_pca2 = mnist_data[:, :2]
 mnist_init = mnist_pca2 / mnist_pca2[:,0].std()
 
-print("Half data loaded successfully.")
-
 # retina
-retina_data = np.load('data/retina/3000_no_std_pca50.npy')
-retina_labels = np.load('data/retina/labels 1.npy')
-
+retina_data = np.load('../data/retina/3000_no_std_pca50.npy')
+retina_labels = np.load('../data/retina/labels 1.npy')
 retina_pca2 = retina_data[:, :2]
-reina_init = retina_pca2 / retina_pca2[:,0].std()
+retina_init = retina_pca2 / retina_pca2[:,0].std()
 
 # Zebrafish
-zfish_data = np.load('data/zfish/zfish.data.npy')
-zfish_labels = np.load('data/zfish/zfish.labels.npy')
-# zfish_alt_colors = np.load('data/zfish/zfish.altlabels.npy')
-
+zfish_data = np.load('../data/zfish/zfish.data.npy')
+zfish_labels = np.load('../data/zfish/zfish.labels.npy')
 zfish_pca2 = zfish_data[:, :2]
 zfish_init = zfish_pca2 / zfish_pca2[:,0].std()
 
 # C. elegans
-c_el_data = np.load('data/c_elegans/c_elegans_50pc.npy')
-c_el_labels = np.load('data/c_elegans/c_el_cell_types.npy', allow_pickle=True).astype(str)
-
+c_el_data = np.load('../data/c_elegans/c_elegans_50pc.npy')
+c_el_labels = np.load('../data/c_elegans/c_el_cell_types.npy', allow_pickle=True).astype(str)
 c_el_pca2 = c_el_data[:, :2]
 c_el_init = c_el_pca2 / c_el_pca2[:,0].std()
 
@@ -109,7 +97,7 @@ init_list = [
     kanton_init, 
     genome_init, 
     mnist_init, 
-    reina_init, 
+    retina_init, 
     zfish_init, 
     c_el_init
 ]
@@ -125,8 +113,6 @@ names_list = [
 
 print("Data loaded successfully.")
 
-import sys
-sys.path.append("/gpfs01/berens/user/nkury") # /gpfs01/berens/user/nkury/tsne_pca/
 
 from squad_mds.SQuaD_MDS import run_SQuaD_MDS
 from squad_mds.hybrid import run_hybrid
@@ -232,7 +218,7 @@ for i in range(len(data_list)):
         print(f"UMAP - {data_name} - Seed {rs} completed.")
 
     # Save results (for one dataset)
-    with open(f'results/{data_name}_results_om_final.pkl', 'wb') as f:
+    with open(f'../results/other_methods/{data_name}_results_om_final.pkl', 'wb') as f:
         pickle.dump({
             'squad_mds': results_mds,
             'squad_mds_hybrid': results_mds_hybrid,

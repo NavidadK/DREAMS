@@ -1,10 +1,3 @@
-import sys
-from pathlib import Path
-
-# # Get the parent directory of the notebook (i.e., the 'project/' folder)
-# parent_dir = Path().resolve().parent
-# sys.path.append(str(parent_dir))
-
 from functions.embedding_quality import embedding_quality
 import numpy as np
 import pickle
@@ -33,10 +26,9 @@ tasic_pca2_sk = pca.fit_transform(tasic_data)
 tasic_init_weights = pca.components_.T /  tasic_pca2_sk[:,0].std()
 
 # kanton
-folder_path = "/gpfs01/berens/data/sharing_files/sdamrich/for_noel/human-409b2"
-data_file = f"{folder_path}/human-409b2.data.npy"
-labels_file = f"{folder_path}/human-409b2.labels.npy"
-pkl_file = f"{folder_path}/human-409b2.pkl"
+data_file = "../data/Kanton/human-409b2.data.npy"
+labels_file = "../data/Kanton/human-409b2.labels.npy"
+pkl_file = "../data/Kanton/human-409b2.pkl"
 
 kanton_data = np.load(data_file)
 kanton_labels = np.load(labels_file)
@@ -200,8 +192,8 @@ for k, (data, labels, init, init_weights, name) in enumerate(zip(data_list, labe
                 'eval': eval_dec
             }
 
-    # with open(f'/gpfs01/berens/user/nkury/tsne_pca/results/dreams_cne/{name}_results_dreams_cne_small.pkl', 'wb') as f:
-    #     pickle.dump(results_dict, f)
+    with open(f'../results/dreams_cne/{name}_results_dreams_cne_small.pkl', 'wb') as f:
+        pickle.dump(results_dict, f)
 
-    # with open(f'/gpfs01/berens/user/nkury/tsne_pca/results/dreams_cne/{name}_results_dreams_cne_dec_small.pkl', 'wb') as f:
-    #     pickle.dump(results_dict_dec, f)
+    with open(f'../results/dreams_cne/{name}_results_dreams_cne_dec_small.pkl', 'wb') as f:
+        pickle.dump(results_dict_dec, f)

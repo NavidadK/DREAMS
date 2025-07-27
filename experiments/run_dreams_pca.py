@@ -1,11 +1,4 @@
-import sys
-from pathlib import Path
-
-# Get the parent directory of the notebook (i.e., the 'project/' folder)
-parent_dir = Path().resolve().parent
-sys.path.append(str(parent_dir))
-
-from embedding_quality import embedding_quality
+from functions.embedding_quality import embedding_quality
 import numpy as np
 import pickle
 import openTSNE
@@ -21,16 +14,15 @@ number_rs = 4
 
 # data
 # tasic
-tasic_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/tasic/tasic-pca50.npy')
-tasic_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/tasic/tasic-ttypes.npy')
+tasic_data = np.load('../data/tasic/tasic-pca50.npy')
+tasic_labels = np.load('../data/tasic/tasic-ttypes.npy')
 tasic_pca2 = tasic_data[:, :2]
 tasic_init = tasic_pca2 / tasic_pca2[:,0].std()
 
 # kanton
-folder_path = "/gpfs01/berens/data/sharing_files/sdamrich/for_noel/human-409b2"
-data_file = f"{folder_path}/human-409b2.data.npy"
-labels_file = f"{folder_path}/human-409b2.labels.npy"
-pkl_file = f"{folder_path}/human-409b2.pkl"
+data_file = "../data/Kanton/human-409b2.data.npy"
+labels_file = "../data/Kanton/human-409b2.labels.npy"
+pkl_file = "../data/Kanton/human-409b2.pkl"
 
 kanton_data = np.load(data_file)
 kanton_labels = np.load(labels_file)
@@ -38,20 +30,20 @@ kanton_pca2 = kanton_data[:, :2]
 kanton_init = kanton_pca2 / kanton_pca2[:,0].std()
 
 # genome
-genome_data_all = np.loadtxt('/gpfs01/berens/user/nkury/tsne_pca/data/Genomes/gt_sum_thinned.npy')
+genome_data_all = np.loadtxt('../data/Genomes/gt_sum_thinned.npy')
 genome_data = PCA(n_components=50).fit_transform(genome_data_all)
-genome_labels = np.loadtxt('/gpfs01/berens/user/nkury/tsne_pca/data/Genomes/population_labels.txt', dtype=str)
+genome_labels = np.loadtxt('../data/Genomes/population_labels.txt', dtype=str)
 genome_pca2 = genome_data[:, :2]
 genome_init = genome_pca2 / genome_pca2[:,0].std()
 
 # mnist
-mnist_train = torchvision.datasets.MNIST(root='/gpfs01/berens/user/nkury/tsne_pca/data',
+mnist_train = torchvision.datasets.MNIST(root='../data',
                                          train=True,
                                          download=False, 
                                          transform=None)
 x_train, y_train = mnist_train.data.float().numpy(), mnist_train.targets
 
-mnist_test = torchvision.datasets.MNIST(root='/gpfs01/berens/user/nkury/tsne_pca/data',
+mnist_test = torchvision.datasets.MNIST(root='../data',
                                         train=False,
                                         download=False, 
                                         transform=None)
@@ -70,20 +62,20 @@ mnist_pca2 = mnist_data[:, :2]
 mnist_init = mnist_pca2 / mnist_pca2[:,0].std()
 
 # retina
-retina_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/retina/3000_no_std_pca50.npy')
-retina_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/retina/labels 1.npy')
+retina_data = np.load('../data/retina/3000_no_std_pca50.npy')
+retina_labels = np.load('../data/retina/labels 1.npy')
 retina_pca2 = retina_data[:, :2]
 retina_init = retina_pca2 / retina_pca2[:,0].std()
 
 # Zebrafish
-zfish_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/zfish/zfish.data.npy')
-zfish_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/zfish/zfish.labels.npy')
+zfish_data = np.load('../data/zfish/zfish.data.npy')
+zfish_labels = np.load('../data/zfish/zfish.labels.npy')
 zfish_pca2 = zfish_data[:, :2]
 zfish_init = zfish_pca2 / zfish_pca2[:,0].std()
 
 # C. elegans
-c_el_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/c_elegans/c_elegans_50pc.npy')
-c_el_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/c_elegans/c_el_cell_types.npy', allow_pickle=True).astype(str)
+c_el_data = np.load('../data/c_elegans/c_elegans_50pc.npy')
+c_el_labels = np.load('../data/c_elegans/c_el_cell_types.npy', allow_pickle=True).astype(str)
 c_el_pca2 = c_el_data[:, :2]
 c_el_init = c_el_pca2 / c_el_pca2[:,0].std()
 
@@ -146,5 +138,5 @@ for data, labels, init, name in zip(data_list, labels_list, init_list, names_lis
                 'eval': eval
             }
 
-    with open(f'/gpfs01/berens/user/nkury/tsne_pca/openTSNE/results/paper/dreams/dreams_pca/{name}_results_dreams_pca.pkl', 'wb') as f:
+    with open(f'../results/dreams/dreams_pca/{name}_results_dreams_pca.pkl', 'wb') as f:
         pickle.dump(results_dict, f)

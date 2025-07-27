@@ -5,7 +5,7 @@ from pathlib import Path
 parent_dir = Path().resolve().parent
 sys.path.append(str(parent_dir))
 
-from embedding_quality import embedding_quality
+from functions.embedding_quality import embedding_quality
 import numpy as np
 import pickle
 import openTSNE
@@ -20,57 +20,56 @@ lambdas_list = np.linspace(0, 1, 41)
 number_rs = 4
 
 # Load om data
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/tasic_results_om.pkl', 'rb') as f:
+with open('../results/tasic_results_om.pkl', 'rb') as f:
     tasic_om_results = pickle.load(f)
 
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/kanton_results_om.pkl', 'rb') as f:
+with open('../results/kanton_results_om.pkl', 'rb') as f:
     kanton_om_results = pickle.load(f)
 
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/genome_results_om.pkl', 'rb') as f:
+with open('../results/genome_results_om.pkl', 'rb') as f:
     genome_om_results = pickle.load(f)
 
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/MNIST_results_om.pkl', 'rb') as f:
+with open('../results/MNIST_results_om.pkl', 'rb') as f:
     mnist_om_results = pickle.load(f)
 
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/retina_results_om.pkl', 'rb') as f:
+with open('../results/retina_results_om.pkl', 'rb') as f:
     retina_om_results = pickle.load(f)
 
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/zfish_results_om.pkl', 'rb') as f:
+with open('../results/zfish_results_om.pkl', 'rb') as f:
     zfish_om_results = pickle.load(f)
 
-with open('/gpfs01/berens/user/nkury/tsne_pca/results/c_elegans_results_om.pkl', 'rb') as f:
+with open('../results/c_elegans_results_om.pkl', 'rb') as f:
     c_el_om_results = pickle.load(f)
 
 # data
 # tasic
-tasic_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/tasic/tasic-pca50.npy')
-tasic_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/tasic/tasic-ttypes.npy')
+tasic_data = np.load('../data/tasic/tasic-pca50.npy')
+tasic_labels = np.load('../data/tasic/tasic-ttypes.npy')
 tasic_init = tasic_om_results['squad_mds']['seed_0']['embedding']
 
 # kanton
-folder_path = "/gpfs01/berens/data/sharing_files/sdamrich/for_noel/human-409b2"
-data_file = f"{folder_path}/human-409b2.data.npy"
-labels_file = f"{folder_path}/human-409b2.labels.npy"
-pkl_file = f"{folder_path}/human-409b2.pkl"
+data_file = "../data/Kanton/human-409b2.data.npy"
+labels_file = "../data/Kanton/human-409b2.labels.npy"
+pkl_file = "../data/Kanton/human-409b2.pkl"
 
 kanton_data = np.load(data_file)
 kanton_labels = np.load(labels_file)
 kanton_init = kanton_om_results['squad_mds']['seed_0']['embedding']
 
 # genome
-genome_data_all = np.loadtxt('/gpfs01/berens/user/nkury/tsne_pca/data/Genomes/gt_sum_thinned.npy')
+genome_data_all = np.loadtxt('../data/Genomes/gt_sum_thinned.npy')
 genome_data = PCA(n_components=50).fit_transform(genome_data_all)
-genome_labels = np.loadtxt('/gpfs01/berens/user/nkury/tsne_pca/data/Genomes/population_labels.txt', dtype=str)
+genome_labels = np.loadtxt('../data/Genomes/population_labels.txt', dtype=str)
 genome_init = genome_om_results['squad_mds']['seed_0']['embedding']
 
 # mnist
-mnist_train = torchvision.datasets.MNIST(root='/gpfs01/berens/user/nkury/tsne_pca/data',
+mnist_train = torchvision.datasets.MNIST(root='../data',
                                          train=True,
                                          download=False, 
                                          transform=None)
 x_train, y_train = mnist_train.data.float().numpy(), mnist_train.targets
 
-mnist_test = torchvision.datasets.MNIST(root='/gpfs01/berens/user/nkury/tsne_pca/data',
+mnist_test = torchvision.datasets.MNIST(root='../data',
                                         train=False,
                                         download=False, 
                                         transform=None)
@@ -88,18 +87,18 @@ mnist_labels = y_train
 mnist_init = mnist_om_results['squad_mds']['seed_0']['embedding']
 
 # retina
-retina_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/retina/3000_no_std_pca50.npy')
-retina_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/retina/labels 1.npy')
+retina_data = np.load('../data/retina/3000_no_std_pca50.npy')
+retina_labels = np.load('../data/retina/labels 1.npy')
 retina_init = retina_om_results['squad_mds']['seed_0']['embedding']
 
 # Zebrafish
-zfish_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/zfish/zfish.data.npy')
-zfish_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/zfish/zfish.labels.npy')
+zfish_data = np.load('../data/zfish/zfish.data.npy')
+zfish_labels = np.load('../data/zfish/zfish.labels.npy')
 zfish_init = zfish_om_results['squad_mds']['seed_0']['embedding']
 
 # C. elegans
-c_el_data = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/c_elegans/c_elegans_50pc.npy')
-c_el_labels = np.load('/gpfs01/berens/user/nkury/tsne_pca/data/c_elegans/c_el_cell_types.npy', allow_pickle=True).astype(str)
+c_el_data = np.load('../data/c_elegans/c_elegans_50pc.npy')
+c_el_labels = np.load('../data/c_elegans/c_el_cell_types.npy', allow_pickle=True).astype(str)
 c_el_init = c_el_om_results['squad_mds']['seed_0']['embedding']
 
 data_list = [
@@ -161,5 +160,5 @@ for data, labels, init, name in zip(data_list, labels_list, init_list, names_lis
                 'eval': eval
             }
 
-    with open(f'/gpfs01/berens/user/nkury/tsne_pca/openTSNE/results/paper/dreams/dreams_mds/{name}_results_dreams_mds.pkl', 'wb') as f:
+    with open(f'../results/dreams/dreams_mds/{name}_results_dreams_mds.pkl', 'wb') as f:
         pickle.dump(results_dict, f)
