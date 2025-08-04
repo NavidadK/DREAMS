@@ -13,10 +13,6 @@ from openTSNE import initialization as initialization_scheme
 from openTSNE.affinity import Affinities, MultiscaleMixture
 from openTSNE.quad_tree import QuadTree
 from openTSNE import utils
-# pca
-from sklearn.decomposition import PCA
-import torch
-
 
 EPSILON = np.finfo(np.float64).eps
 
@@ -1172,8 +1168,6 @@ class TSNE(BaseEstimator):
         reg_embedding=None,
         reg_scaling='norm',
         reg_scaling_dims='one',
-        reg_decoder=False,
-        reg_decoder_weights=None,
     ):
         self.n_components = n_components
         self.perplexity = perplexity
@@ -1222,9 +1216,6 @@ class TSNE(BaseEstimator):
         self.reg_embedding = reg_embedding
         self.reg_scaling = reg_scaling
         self.reg_scaling_dims = reg_scaling_dims
-
-        self.reg_decoder = reg_decoder
-        self.reg_decoder_weights = reg_decoder_weights
 
 
     def fit(self, X=None, affinities=None, initialization=None):
@@ -1468,8 +1459,6 @@ class TSNE(BaseEstimator):
             "reg_scaling": self.reg_scaling,
             "reg_scaling_dims": self.reg_scaling_dims,
             "X": X,
-            "reg_decoder": self.reg_decoder,
-            "reg_decoder_weights": self.reg_decoder_weights,
         }
 
         return TSNEEmbedding(
@@ -1647,8 +1636,6 @@ class gradient_descent:
         reg_embedding=None,
         reg_scaling='optimal',
         reg_scaling_dims='all',
-        reg_decoder=False,
-        reg_decoder_weights=None,
         X=None,
     ):
         """Perform batch gradient descent with momentum and gains.
@@ -1825,13 +1812,6 @@ class gradient_descent:
         if verbose:
             start_time = time()
 
-        # Init decoder
-        if reg_decoder:
-            #self.decoder = Decoder(input_dim=embedding.shape[1], output_dim=X.shape[1], decoder_weights=reg_decoder_weights)
-            self.decoder = TorchDecoder(input_dim=embedding.shape[1], output_dim=X.shape[1])
-            optimizer = torch.optim.SGD(self.decoder.parameters(), lr=learning_rate)
-
-
         for iteration in range(n_iter):
             should_call_callback = use_callbacks and (iteration + 1) % callbacks_every_iters == 0
             # Evaluate error on 50 iterations for logging, or when callbacks
@@ -1901,48 +1881,13 @@ class gradient_descent:
                 reg_error = np.mean((embedding - alpha * reg_embedding) ** 2)
                 reg_grad = 2/len(embedding) * (embedding - alpha * reg_embedding)
 
-                # # grad clipping
-                # reg_grad = np.clip(reg_grad, -1, 1)
-
-                # grad_norm = np.linalg.norm(reg_grad)
-                # max_grad_norm = 10.0
-                # if grad_norm > max_grad_norm:
-                #     reg_grad = (reg_grad / grad_norm) * max_grad_norm
-
                 # Combining with the t-SNE error and gradient
                 tsne_grad = self.gains * gradient
 
-                # # all momentum
-                # combined_grad = (1-reg_lambda) * tsne_grad + reg_lambda * reg_grad
-                # self.update = momentum * self.update - learning_rate * combined_grad
-
                 # momentum only for t-SNE
-                # self.update = momentum * self.update - learning_rate * (1 - reg_lambda) * tsne_grad
                 self.update = momentum * self.update - learning_rate * tsne_grad
                 reg_update = -learning_rate * reg_lambda * reg_grad
                             
-            elif reg_decoder:
-                # reg_error = self.decoder.compute_loss(X, embedding)
-                # dec_grad_y, dec_grad_w, dec_grad_b = self.decoder.compute_gradients(X, embedding)
-
-                embedding_torch = torch.tensor(embedding, dtype=torch.float32, requires_grad=True)
-                X_hat = self.decoder.forward(embedding_torch)
-                
-                dec_loss = torch.nn.functional.mse_loss(torch.tensor(X, dtype=torch.float32), X_hat)
-                optimizer.zero_grad()
-                dec_loss.backward()
-                torch.nn.utils.clip_grad_norm_(self.decoder.parameters(), max_norm=20.0)
-                dec_grad_y = embedding_torch.grad.detach().numpy()
-                # dec_grad_w = self.decoder.linear.weight.grad.detach().numpy()
-                # dec_grad_b = self.decoder.linear.bias.grad.detach().numpy()
-                optimizer.step()
-                print("dec_loss", dec_loss.item())
-                #print("reg_error", reg_error, "dec_grad_y", np.linalg.norm(dec_grad_y), "dec_grad_w", np.linalg.norm(dec_grad_w), "dec_grad_b", np.linalg.norm(dec_grad_b))
-
-                # t-SNE
-                tsne_grad = self.gains * gradient
-                self.update = momentum * self.update - learning_rate * tsne_grad
-            
             else:
                 # Only t-SNE objective
                 self.update = momentum * self.update - learning_rate * self.gains * gradient
@@ -1958,22 +1903,8 @@ class gradient_descent:
             if regularization: 
                 embedding += (1-reg_lambda) * self.update + reg_lambda * reg_update
 
-            elif reg_decoder:
-                embedding += (1-reg_lambda) * self.update + 10 * reg_lambda * dec_grad_y
-                embd_norm = np.linalg.norm(embedding)
-                max_norm = 10000
-                if embd_norm > max_norm:
-                    embedding = embedding / embd_norm * max_norm
-
-                # scaling_factor = np.minimum(1, max_norm / (embd_norm + 1e-8))
-                # embedding = embedding * scaling_factor
-                # print('weights:', self.weights.shape(), 'biases:', self.biases.shape(), 'lr:', learning_rate)
-
-                # self.decoder.weights -= learning_rate * dec_grad_w
-                # self.decoder.biases -= learning_rate * dec_grad_b
             else:
                 embedding += self.update
-            # print(f"iteration {iteration}: embd norm", np.linalg.norm(embedding))
 
             # Zero-mean the embedding only if we're not adding new data points,
             # otherwise this will reset point positions
@@ -2022,97 +1953,3 @@ class gradient_descent:
             error = (1 - reg_lambda) * error + reg_lambda * np.mean((embedding - alpha * reg_embedding) ** 2)
 
         return error, embedding
-
-# class Decoder:
-#     def __init__(self, input_dim, output_dim, decoder_weights=None):
-#         # Initialize weights and biases
-#         if decoder_weights is not None:
-#             self.weights = decoder_weights
-#         else:
-#             # Randomly initialize weights
-#             self.weights = np.random.randn(output_dim, input_dim) * 0.01
-#         self.biases = np.zeros(output_dim)
-
-#     def forward(self, Y):
-#         return self.weights @ Y.T + self.biases[:, np.newaxis]
-
-#     def compute_loss(self, X, Y):
-#         # Compute reconstruction loss: 
-#         X_hat = self.forward(Y)
-#         print("X shape", X.shape, "X_hat shape", X_hat.shape)
-#         return np.mean(np.sum((X.T - X_hat) ** 2, axis=1))
-#         #return np.mean(np.sum((X - Y) ** 2, axis=1))
-    
-#     def compute_gradients(self, X, Y):
-#         X_hat = self.forward(Y)
-#         E = X_hat - X.T 
-
-#         grad_y = len(Y) * self.weights.T @ E
-#         grad_weights = len(Y) *E @ Y
-#         grad_biases = len(Y) * np.sum(E, axis=1)
-
-#         # Clipping gradients
-#         grad_y = np.clip(grad_y, -10, 10)
-#         grad_weights = np.clip(grad_weights, -10, 10)
-#         grad_biases = np.clip(grad_biases, -10, 10)
-
-#         return grad_y.T, grad_weights, grad_biases
-    
-
-class Decoder:
-    def __init__(self, input_dim, output_dim, decoder_weights=None):
-        # Initialize weights and biases
-        if decoder_weights is not None:
-            self.weights = decoder_weights
-        else:
-            # Randomly initialize weights
-            self.weights = np.random.randn(input_dim, output_dim) * 0.01
-        self.biases = np.zeros(output_dim)
-
-    def forward(self, Y):
-        return Y @ self.weights + self.biases# [:, np.newaxis]
-
-    def compute_loss(self, X, Y):
-        # Compute reconstruction loss: 
-        X_hat = self.forward(Y)
-        return np.mean((X - X_hat) ** 2)
-        #return np.mean(np.sum((X - Y) ** 2, axis=1))
-    
-    def compute_gradients(self, X, Y):
-        X_hat = self.forward(Y)
-        E = X - X_hat
-
-        # skalieren? Mit 1/n*D ?
-        grad_y =  -2/(X.shape[0]*X.shape[1]) * E @ self.weights.T
-        grad_weights = -2/(X.shape[0]*X.shape[1])* Y.T @ E
-        grad_biases = -2/(X.shape[0]*X.shape[1])* np.sum(E, axis=0)
-
-        # print('X shape', X.shape, 'X_hat shape', X_hat.shape)
-        # print('y shape', Y.shape, 'weights shape', self.weights.shape, 'biases shape', self.biases.shape)
-        # print("grad_y shape", grad_y.shape, "grad_weights shape", grad_weights.shape, "grad_biases shape", grad_biases.shape)
-
-        # # Clipping gradients
-        # grad_y = np.clip(grad_y, -10, 10)
-        # grad_weights = np.clip(grad_weights, -10, 10)
-        # grad_biases = np.clip(grad_biases, -10, 10)
-
-        grad_y = clip_gradient_norm(grad_y)
-        grad_weights = clip_gradient_norm(grad_weights)
-        grad_biases = clip_gradient_norm(grad_biases)
-
-        return grad_y, grad_weights, grad_biases
-    
-def clip_gradient_norm(grad, max_norm=10000):
-    norm = np.linalg.norm(grad)
-    if norm > max_norm:
-        grad = grad * (max_norm / norm)
-    return grad
-
-class TorchDecoder(torch.nn.Module):
-    def __init__(self, input_dim, output_dim):
-        super().__init__()
-        self.linear = torch.nn.Linear(input_dim, output_dim)
-    def forward(self, y):
-        x = self.linear(y)
-        #x = x.detach().numpy()  # Convert back to numpy array
-        return x
