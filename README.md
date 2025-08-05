@@ -31,7 +31,10 @@ tasic_pca2 = tasic_data[:, :2]
 tasic_reg_emb = tasic_pca2 / tasic_pca2[:,0].std()
 
 # DREAMS
-embedder = TSNE(initialization=tasic_reg_emb,           regularization=True, reg_lambda=0.1, reg_embedding=tasic_reg_emb)
+embedder = TSNE(initialization=tasic_reg_emb, 
+                regularization=True, 
+                reg_lambda=0.1, 
+                reg_embedding=tasic_reg_emb)
 tasic_dreams = embedder.fit(data)
 
 # Plot the embedding
