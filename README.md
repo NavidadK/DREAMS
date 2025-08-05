@@ -23,6 +23,8 @@ Here is an example on the Tasic et al. dataset[^tasic]
 ````python
 import openTSNE
 from openTSNE import TSNE
+import numpy as np              # to load data
+import matplotlib.pyplot as plt # for plotting
 
 # Load data
 tasic_data = np.load('data/tasic/tasic-pca50.npy')
