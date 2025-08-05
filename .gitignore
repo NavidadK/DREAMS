@@ -10,7 +10,7 @@ dist/
 *.cpp
 *.o
 archive/
-figures/
+figures_archive/
 results/
 run_exag.py
 run_dreams_opts.py
