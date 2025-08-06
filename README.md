@@ -3,7 +3,7 @@
 DREAMS
 ========
 
-This repossitory contains the code of the method presented in "DREAMS: Preserving both Local and Global Structure in Dimensionality Reduction".
+This repository contains the code of the method presented in "DREAMS: Preserving both Local and Global Structure in Dimensionality Reduction".
 
 DREAMS (Dimensionality Reduction Enhanced Across Multiple Scales) combines the local structure preservation of $t$-SNE with the global structure preservation of PCA via a regularization term that motivates global structure preservation. It provides a continuum of embeddings along a local-global spectrum with almost no local/global structure preservation tradeoff.
 
@@ -14,7 +14,7 @@ The code builds upon [openTSNE](https://github.com/pavlin-policar/openTSNE), whi
 # Installation
 To use the method you must follow these steps:
 ````
-git clone --branch tp --single-branch https://github.com/NavidadK/DREAMS.git
+git clone --branch tp --single-branch https://github.com/berenslab/DREAMS.git
 cd DREAMS
 python setup.py install
 ````
