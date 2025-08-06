@@ -1,3 +1,5 @@
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
 DREAMS
 ========
 
@@ -13,13 +15,13 @@ The code builds upon [openTSNE](https://github.com/pavlin-policar/openTSNE), whi
 To use the method you must follow these steps:
 ````
 git clone --branch tp --single-branch https://github.com/NavidadK/DREAMS.git
-cd openTSNE
+cd DREAMS
 python setup.py install
 ````
 # Usage example
 DREAMS is using a precomputed reference embedding that is responsible for the global layout of the embedding. Per default DREAMS is using the PCA embedding, but other embeddings such as the MDS embedding can be used as well. The regularization strength determines the influence of the regularization-embedding on the final embedding. Its default regualrization strength is $\lambda=0.1$, which experimentally showed to effectively keep the local strcuture preservation of $t$-SNE and simultaneously the global structure preservation of PCA.
 
-Here is an example on the Tasic et al. dataset[^tasic]
+Here is an example on the Tasic et al. dataset[^tasic] (which is not part of this repository but the preprocessed data can be found [here](https://github.com/berenslab/rna-seq-tsne/tree/master/data/tasic-preprocessed)):
 ````python
 import openTSNE
 from openTSNE import TSNE
